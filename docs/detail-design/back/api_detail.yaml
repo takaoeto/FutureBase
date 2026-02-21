@@ -1,0 +1,885 @@
+openapi: 3.0.3
+info:
+  title: FutureBase API
+  version: 1.0.0
+  description: |
+    FutureBase（タスク管理）のAPI仕様。
+    認証は JWT（Bearer）+ メールOTP（登録/ログイン時）を採用する。
+
+servers:
+  - url: /api
+    description: Same origin
+
+tags:
+  - name: Auth
+    description: 認証
+  - name: Projects
+    description: プロジェクト
+  - name: Tasks
+    description: タスク
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: ユーザー登録（OTP送信）
+      description: |
+        email/password を受け取り OTP を送信する。
+        この時点ではアカウントを有効化しない（OTP検証後に有効化）。
+      security: [] # 未認証
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              example:
+                value:
+                  email: test@example.com
+                  password: password1234
+      responses:
+        '201':
+          description: OTP送信成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                ok:
+                  value:
+                    message: OTP sent
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 既に登録済み
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                email_conflict:
+                  value:
+                    code: EMAIL_ALREADY_EXISTS
+                    message: Email already registered
+                    details: []
+                    traceId: 2b6b6c2f-7c10-4ff0-a9d7-3b4e2b5f9f2a
+
+  /auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: 登録OTP検証（アカウント有効化）
+      description: |
+        登録時に送信したOTPを検証し、アカウントを有効化する。
+        OTPは 5分有効。失敗5回でロック。
+      security: [] # 未認証
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+            examples:
+              example:
+                value:
+                  email: test@example.com
+                  otp: "123456"
+      responses:
+        '200':
+          description: 有効化成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                ok:
+                  value:
+                    message: Account verified
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: OTP不一致/期限切れ/ロック等
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                otp_expired:
+                  value:
+                    code: OTP_EXPIRED
+                    message: OTP expired
+                    details: []
+                    traceId: 6a3a0b8a-6c51-45c0-8f60-f4c9f8d0b7be
+                otp_mismatch:
+                  value:
+                    code: OTP_MISMATCH
+                    message: OTP mismatch
+                    details: []
+                    traceId: 8c0b7f1e-30a9-4a69-a9d1-8f3b87f3d9ad
+                otp_locked:
+                  value:
+                    code: OTP_LOCKED
+                    message: Too many attempts. Account locked.
+                    details: []
+                    traceId: 43b6c7cf-4a51-4f5d-9d1b-23a8f98a6d6a
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: ログイン（OTP送信）
+      description: |
+        email/password を検証して OTP を送信する。
+        JWTはこのAPIでは返さない（OTP検証後に発行）。
+      security: [] # 未認証
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              example:
+                value:
+                  email: test@example.com
+                  password: password1234
+      responses:
+        '200':
+          description: OTP送信成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                ok:
+                  value:
+                    message: OTP sent
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: ロック等（例：OTP試行回数超過）
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                locked:
+                  value:
+                    code: ACCOUNT_LOCKED
+                    message: Account locked
+                    details: []
+                    traceId: 2e7f7c7c-4b7c-4e1a-b0df-4c4ef2c6d8a1
+
+  /auth/login/otp/verify:
+    post:
+      tags: [Auth]
+      summary: ログインOTP検証（JWT発行）
+      security: [] # 未認証
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+            examples:
+              example:
+                value:
+                  email: test@example.com
+                  otp: "123456"
+      responses:
+        '200':
+          description: JWT発行成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              examples:
+                ok:
+                  value:
+                    token: xxxxx.yyyyy.zzzzz
+                    tokenType: Bearer
+                    expiresIn: 1800
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: OTP不一致/期限切れ等
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                otp_invalid:
+                  value:
+                    code: OTP_INVALID
+                    message: OTP invalid or expired
+                    details: []
+                    traceId: 0d5f6a9c-1d0f-4d95-b9a0-0c9c4b7d61d4
+        '409':
+          description: ロック等
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: ログアウト
+      description: |
+        JWTはステートレス運用のためサーバ側は原則何もしない。
+        クライアント側で token を削除すること。
+        将来ブラックリスト方式を導入する場合に拡張可能。
+      responses:
+        '200':
+          description: ログアウト成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+              examples:
+                ok:
+                  value:
+                    message: Logged out
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /projects:
+    get:
+      tags: [Projects]
+      summary: プロジェクト一覧（ページング）
+      description: ログインユーザーが owner のプロジェクトのみ返す。
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/SizeProjects'
+      responses:
+        '200':
+          description: 一覧取得成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Projects]
+      summary: プロジェクト新規作成
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+            examples:
+              example:
+                value:
+                  name: Project A
+      responses:
+        '201':
+          description: 作成成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /projects/{id}:
+    put:
+      tags: [Projects]
+      summary: プロジェクト更新（ownerのみ）
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateRequest'
+            examples:
+              example:
+                value:
+                  name: Project A (updated)
+      responses:
+        '200':
+          description: 更新成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Projects]
+      summary: プロジェクト削除（ownerのみ）
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '204':
+          description: 削除成功（ボディなし）
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{id}/tasks:
+    get:
+      tags: [Tasks]
+      summary: タスク一覧（ページング）
+      description: |
+        指定プロジェクト配下のタスク一覧を返す。
+        ownerのみ参照可。
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/SizeTasks'
+      responses:
+        '200':
+          description: 一覧取得成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskPageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Tasks]
+      summary: タスク新規作成（プロジェクト配下）
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+            examples:
+              example:
+                value:
+                  title: Task 1
+                  status: TODO
+      responses:
+        '201':
+          description: 作成成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /tasks/{id}:
+    put:
+      tags: [Tasks]
+      summary: タスク更新（ownerのみ）
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdateRequest'
+            examples:
+              example:
+                value:
+                  title: Task 1 (updated)
+                  status: DOING
+      responses:
+        '200':
+          description: 更新成功
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Tasks]
+      summary: タスク削除（ownerのみ）
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '204':
+          description: 削除成功（ボディなし）
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/XTraceId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Authorization: Bearer {token}"
+
+  headers:
+    XTraceId:
+      description: サーバが採番するトレースID
+      schema:
+        type: string
+        example: 2b6b6c2f-7c10-4ff0-a9d7-3b4e2b5f9f2a
+
+  parameters:
+    ProjectId:
+      name: id
+      in: path
+      required: true
+      description: プロジェクトID
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    TaskId:
+      name: id
+      in: path
+      required: true
+      description: タスクID
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    Page:
+      name: page
+      in: query
+      required: false
+      description: ページ番号（0始まり）
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    SizeProjects:
+      name: size
+      in: query
+      required: false
+      description: 1ページ件数（Projects）
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+    SizeTasks:
+      name: size
+      in: query
+      required: false
+      description: 1ページ件数（Tasks）
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 50
+
+  responses:
+    BadRequest:
+      description: 入力不正（バリデーション/形式不正）
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/XTraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation_error:
+              value:
+                code: VALIDATION_ERROR
+                message: Invalid request
+                details:
+                  - field: email
+                    reason: must be a well-formed email address
+                traceId: 0c4d0f3a-6e9c-49b4-9f86-63aefb3c7f95
+    Unauthorized:
+      description: 未認証（トークン不正/期限切れ含む）
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/XTraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unauthorized:
+              value:
+                code: UNAUTHORIZED
+                message: Authentication required
+                details: []
+                traceId: 7ab0a62c-79bd-4a0c-8d6b-9c1b8b26d7f2
+    Forbidden:
+      description: 権限不足（ownerではない等）
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/XTraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            forbidden:
+              value:
+                code: FORBIDDEN
+                message: Access denied
+                details: []
+                traceId: 1c5c3c3f-0c4e-4e0a-8b2c-2f8fbb8a2d7a
+    NotFound:
+      description: リソースが存在しない
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/XTraceId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            not_found:
+              value:
+                code: NOT_FOUND
+                message: Resource not found
+                details: []
+                traceId: 9c1a9c8b-4d5c-4f3a-9f9a-2a1b3c4d5e6f
+
+  schemas:
+    # ---- Common ----
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: OTP sent
+
+    ErrorDetail:
+      type: object
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+          example: email
+        reason:
+          type: string
+          example: must not be blank
+
+    ErrorResponse:
+      type: object
+      required: [code, message, details, traceId]
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Invalid request
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        traceId:
+          type: string
+          example: 2b6b6c2f-7c10-4ff0-a9d7-3b4e2b5f9f2a
+
+    # ---- Auth ----
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: test@example.com
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          example: password1234
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: test@example.com
+        password:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: password1234
+
+    OtpVerifyRequest:
+      type: object
+      required: [email, otp]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: test@example.com
+        otp:
+          type: string
+          description: 6桁数字（先頭0を許容するため string）
+          pattern: '^[0-9]{6}$'
+          example: "123456"
+
+    TokenResponse:
+      type: object
+      required: [token, tokenType, expiresIn]
+      properties:
+        token:
+          type: string
+          description: JWT
+          example: xxxxx.yyyyy.zzzzz
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          format: int32
+          description: 有効期限（秒）
+          example: 1800
+
+    # ---- Domain ----
+    TaskStatus:
+      type: string
+      description: タスクステータス
+      enum: [TODO, DOING, DONE]
+
+    Project:
+      type: object
+      required: [id, name, ownerId, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Project A
+        ownerId:
+          type: integer
+          format: int64
+          example: 10
+        createdAt:
+          type: string
+          description: 日付時刻（表記は実装で統一推奨：ISO-8601）
+          example: "2026/02/21 10:00:00"
+
+    Task:
+      type: object
+      required: [id, title, status, projectId, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 100
+        title:
+          type: string
+          example: Task 1
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        projectId:
+          type: integer
+          format: int64
+          example: 1
+        createdAt:
+          type: string
+          description: 日付時刻（表記は実装で統一推奨：ISO-8601）
+          example: "2026/02/21 10:10:00"
+
+    # ---- Requests ----
+    ProjectCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Project A
+
+    ProjectUpdateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Project A (updated)
+
+    TaskCreateRequest:
+      type: object
+      required: [title, status]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Task 1
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+
+    TaskUpdateRequest:
+      type: object
+      required: [title, status]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Task 1 (updated)
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+
+    # ---- Pagination ----
+    PageMeta:
+      type: object
+      required: [page, size, total]
+      properties:
+        page:
+          type: integer
+          format: int32
+          example: 0
+        size:
+          type: integer
+          format: int32
+          example: 20
+        total:
+          type: integer
+          format: int64
+          example: 10
+
+    ProjectPageResponse:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        page:
+          type: integer
+          format: int32
+          example: 0
+        size:
+          type: integer
+          format: int32
+          example: 20
+        total:
+          type: integer
+          format: int64
+          example: 1
+
+    TaskPageResponse:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        page:
+          type: integer
+          format: int32
+          example: 0
+        size:
+          type: integer
+          format: int32
+          example: 50
+        total:
+          type: integer
+          format: int64
+          example: 1

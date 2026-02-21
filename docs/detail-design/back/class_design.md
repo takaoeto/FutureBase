@@ -1,21 +1,34 @@
-Controller
+# クラス設計
+
+## Controller
 
 - AuthController
 - ProjectController
 - TaskController
 
-Service
+## Service
 
 - AuthService
-- ProjectService（認可）
-- TaskService（認可）
+- ProjectService
+- TaskService
 - OtpService
 
-Repository
+## Repository
 
 - UserRepository
 - ProjectRepository
 - TaskRepository
 - OtpRepository
 
-DTOはrecord使用（Java21）
+## Security
+
+- SecurityConfig
+- JwtFilter
+
+## Exception
+
+- GlobalExceptionHandler
+
+## DTO
+
+record使用（Java21）

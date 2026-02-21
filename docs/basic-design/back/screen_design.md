@@ -1,9 +1,32 @@
 # 画面設計
 
-Register
-Register OTP
-Login
-Login OTP
-Projects一覧
-Project詳細（Tasks）
-Logout
+## RegisterPage
+
+入力:
+
+- email
+- password
+
+## RegisterOtpPage
+
+- otp
+
+## LoginPage
+
+- email
+- password
+
+## LoginOtpPage
+
+- otp
+
+## ProjectsPage
+
+- プロジェクト一覧
+- 新規作成ボタン
+
+## TasksPage
+
+- タスク一覧
+- 新規作成
+- ステータス変更
