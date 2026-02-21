@@ -1,18 +1,14 @@
-# 状態管理設計（基本）
+AuthContext
 
-## 管理方針
+- token
+- isAuthenticated
 
-- 認証状態 → React Context
-- APIデータ → useState + useEffect
-- 将来的に react-query 導入可能
+401受信時
 
----
+- token削除
+- loginへ
 
-## 管理対象
+Logout
 
-| 状態             | 管理方法     |
-| ---------------- | ------------ |
-| JWT              | localStorage |
-| ログイン状態     | AuthContext  |
-| プロジェクト一覧 | useState     |
-| タスク一覧       | useState     |
+- token削除
+- loginへ

@@ -1,18 +1,23 @@
 # システム概要設計
 
-## システム構成
+## 構成
 
-- Backend: Spring Boot
-- Database: MySQL
-- 認証方式: JWT
-- API形式: REST
+- Frontend: Next.js (TypeScript)
+- Backend: Spring Boot (Java 21 LTS)
+- Database: PostgreSQL
+- Reverse Proxy: Nginx
+- Infra: EC2 + Docker
 
 ## アーキテクチャ
 
-Controller
+Client
 ↓
-Service
+Nginx
 ↓
-Repository
+Spring Boot
 ↓
-Database
+PostgreSQL
+
+## 認証
+
+- JWT + メールOTP

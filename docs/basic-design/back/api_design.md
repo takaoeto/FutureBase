@@ -1,21 +1,24 @@
-# API基本設計
+# API一覧
 
-## プロジェクトAPI
+## 認証
 
-| Method | URL                | 内容     |
-| ------ | ------------------ | -------- |
-| GET    | /api/projects      | 一覧取得 |
-| POST   | /api/projects      | 作成     |
-| PUT    | /api/projects/{id} | 更新     |
-| DELETE | /api/projects/{id} | 削除     |
+POST /api/auth/register
+POST /api/auth/otp/verify
+POST /api/auth/otp/resend
+POST /api/auth/login
+POST /api/auth/login/otp/verify
+POST /api/auth/logout
 
----
+## プロジェクト
 
-## タスクAPI
+GET /api/projects
+POST /api/projects
+PUT /api/projects/{id}
+DELETE /api/projects/{id}
 
-| Method | URL                      | 内容     |
-| ------ | ------------------------ | -------- |
-| GET    | /api/projects/{id}/tasks | 一覧取得 |
-| POST   | /api/projects/{id}/tasks | 作成     |
-| PUT    | /api/tasks/{id}          | 更新     |
-| DELETE | /api/tasks/{id}          | 削除     |
+## タスク
+
+GET /api/projects/{id}/tasks
+POST /api/projects/{id}/tasks
+PUT /api/tasks/{id}
+DELETE /api/tasks/{id}

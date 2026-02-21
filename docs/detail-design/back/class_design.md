@@ -1,29 +1,21 @@
-# クラス設計
+Controller
 
-## Controller
-
+- AuthController
 - ProjectController
 - TaskController
 
-## Service
+Service
 
-- ProjectService
-- TaskService
+- AuthService
+- ProjectService（認可）
+- TaskService（認可）
+- OtpService
 
-## Repository
+Repository
 
+- UserRepository
 - ProjectRepository
 - TaskRepository
+- OtpRepository
 
-## DTO
-
-- ProjectCreateRequest
-- ProjectResponse
-- TaskCreateRequest
-- TaskResponse
-
-## Entity
-
-- User
-- Project
-- Task
+DTOはrecord使用（Java21）
