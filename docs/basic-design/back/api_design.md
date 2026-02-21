@@ -4,7 +4,6 @@
 
 POST /api/auth/register
 POST /api/auth/otp/verify
-POST /api/auth/otp/resend
 POST /api/auth/login
 POST /api/auth/login/otp/verify
 POST /api/auth/logout
