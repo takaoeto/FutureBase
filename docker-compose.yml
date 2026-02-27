@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: futurebase-db
+    environment:
+      POSTGRES_DB: futurebase
+      POSTGRES_USER: futurebase
+      POSTGRES_PASSWORD: futurebase
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./src/main/resources/schema/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U futurebase"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: futurebase-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/futurebase
+      DB_USERNAME: futurebase
+      DB_PASSWORD: futurebase
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-this-must-be-long-enough}
+      MAIL_HOST: ${MAIL_HOST:-mailhog}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      FRONT_ORIGIN: ${FRONT_ORIGIN:-http://localhost:3000}
+    ports:
+      - "8080:8080"
+
+  # 開発用メールサーバー（OTP確認に使用）
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: futurebase-mail
+    ports:
+      - "2025:1025" # SMTP
+      - "8025:8025" # Web UI (http://localhost:8025 で確認可)
+
+volumes:
+  pgdata:
