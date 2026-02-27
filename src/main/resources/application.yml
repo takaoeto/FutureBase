@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${FUTURE_BASE_DB_URL:jdbc:postgresql://${FUTURE_BASE_DB_HOST:localhost}:${FUTURE_BASE_DB_PORT:5432}/futureBase}
+    username: ${UTURE_BASE_DB_USER:postgres}
+    password: ${UTURE_BASE_DB_PASS:postgres}
+
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration-ms: 3600000
+  cors:
+    allowed-origins: http://localhost:3000
+  otp:
+    expiration-minutes: 10
+    max-attempts: 5
